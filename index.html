@@ -1,96 +1,95 @@
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <script defer src="/_vercel/insights/script.js"></script>
-    <link
-      rel="stylesheet"
-      href="https://cdn.jsdelivr.net/npm/@exampledev/new.css@1.1.2/new.min.css"
-    />
-    <title>Vercel HTML Starter</title>
-    <meta
-      name="description"
-      content="High-performance HTML based website template."
-    />
-  </head>
-  <body>
-    <h1>Vercel HTML Starter</h1>
-    <p>
-      This template is a simple, but powerful single
-      <code>index.html</code> file deployed to
-      <a href="https://vercel.com">Vercel</a>. When your site is deployed, all
-      static assets (like HTML, JavaScript, CSS, images, and more) are deployed
-      globally to every
-      <a href="https://vercel.com/docs/concepts/edge-network/overview"
-        >Vercel Edge Network</a
-      >
-      region.
-    </p>
-    <h2>Simple, privacy-friendly analytics</h2>
-    <p>
-      Want to understand your visitor traffic? Vercel Analytics gives you
-      first-party, privacy-friendly traffic analytics for your HTML site. This
-      template is already configured using the following script:
-    </p>
-    <pre><code>&lt;script defer src="/_vercel/insights/script.js"&gt;&lt;/script&gt;</code></pre>
-    <p>
-      Learn more about
-      <a href="https://vercel.com/analytics">Vercel Analytics</a>.
-    </p>
-    <h2>Integrated with git</h2>
-    <p>
-      Deploying updates to your site is as simple as
-      <code>git push</code> thanks to Vercel's advanced
-      <a href="https://vercel.com/docs/concepts/git">Git Integration</a>.
-      Support for GitHub, GitLab, Bitbucket is zero-configuration, and with the
-      flexible Vercel CLI and API, you can integrate with any tool possible.
-    </p>
-    <p>
-      Learn more about
-      <a href="https://vercel.com/docs/concepts/git">Git Integration</a>.
-    </p>
-    <h2>Fast <code>gzip</code> compression</h2>
-    <p>
-      To help ensure the smallest possible file sizes for your static assets,
-      the Vercel Edge Network compresses files by default using
-      <code>gzip</code>. You can also optionally use
-      <code>brotli</code> compressesion if you prefer.
-    </p>
-    <p>
-      Learn more about
-      <a href="https://vercel.com/docs/concepts/edge-network/compression"
-        >compression</a
-      >.
-    </p>
-    <h2>Advanced routing configuration</h2>
-    <p>
-      Vercel gives you a variety of ways to configure the routing of your
-      website. For example, adding redirects, rewrites, or headers to your page.
-      While you can use <code>vercel.json</code> to define these through JSON,
-      you can also express your routing configuration as code using
-      <a href="https://vercel.com/docs/concepts/functions/edge-middleware"
-        >Vercel Edge Middleware</a
-      >.
-    </p>
-    <p>
-      Middleware runs before the
-      <a href="https://vercel.com/docs/concepts/edge-network/caching"
-        >Vercel Edge Network Cache</a
-      >, so you can configure routing exactly as your application needs. For
-      example, this template uses <code>middleware.js</code> defined in the root
-      of the repository to add additional security headers to the site:
-    </p>
-    <pre><code>referrer-policy: origin-when-cross-origin
-strict-transport-security: max-age=31536000; includeSubDomains; preload
-x-content-type-options: nosniff
-x-dns-prefetch-control: on
-x-frame-options: DENY</code></pre>
-    <p>
-      Learn more about
-      <a href="https://vercel.com/docs/concepts/functions/edge-middleware"
-        >Vercel Edge Middleware</a
-      >.
-    </p>
-  </body>
+<!-- index.html -->
+<!doctype html>
+<html lang="es">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Vara sonora — p5.sound + acelerómetro</title>
+  <!-- Incluye las librerías localmente -->
+  <script src="libs/p5.min.js"></script>
+  <script src="libs/p5.sound.min.js"></script>
+  <style>
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      background: #0b0f14;
+      color: #e6edf3;
+      font-family: system-ui, sans-serif;
+    }
+
+    #ui {
+      position: fixed;
+      inset: auto 0 0 0;
+      background: rgba(0, 0, 0, .35);
+      backdrop-filter: blur(6px);
+      padding: 10px 12px;
+    }
+
+    .row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin: 6px 0;
+      flex-wrap: wrap;
+    }
+
+    label {
+      font-size: 14px;
+      opacity: .9;
+    }
+
+    input[type=range] {
+      width: 140px;
+    }
+
+    button {
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 0;
+      background: #2b6de9;
+      color: white;
+    }
+
+    .pill {
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: #162032;
+      font-size: 12px;
+    }
+
+    canvas {
+      display: block;
+    }
+  </style>
+</head>
+
+<body>
+  <main>
+    <div id="ui">
+      <div class="row">
+        <button id="startBtn">Iniciar audio y sensores</button>
+        <span id="state" class="pill">Audio: detenido · Sensores: sin permiso</span>
+      </div>
+      <div class="row">
+        <label>Sensibilidad</label><input id="sens" type="range" min="0.5" max="6" step="0.1" value="2">
+        <label>Pitch min</label><input id="pmin" type="range" min="80" max="400" step="1" value="180">
+        <label>Pitch max</label><input id="pmax" type="range" min="300" max="1600" step="1" value="880">
+        <label>Brillo</label><input id="bright" type="range" min="0" max="1" step="0.01" value="0.6">
+        <label>Suavizado</label><input id="smooth" type="range" min="0" max="1" step="0.01" value="0.18">
+        <label>Forma</label>
+        <select id="wave">
+          <option value="sine">sine</option>
+          <option value="triangle" selected>triangle</option>
+          <option value="sawtooth">sawtooth</option>
+          <option value="square">square</option>
+        </select>
+        <label><input id="invert" type="checkbox"> Invertir pitch</label>
+      </div>
+    </div>
+  </main>
+  <script src="sketch.js"></script>
+</body>
+
 </html>
