@@ -1,4 +1,5 @@
-
+// sketch.js
+// Vara sonora: mapea el movimiento (acelerómetro) a pitch, timbre y volumen con p5.sound
 
 let osc, filt, env, meter;
 let started = false, motionReady = false;
@@ -77,6 +78,7 @@ function updateState() {
 function draw() {
   background(10, 14, 20);
 
+  // Leer aceleración si está disponible
   if (motionReady) {
     // p5 expone accelerationX/Y/Z cuando hay devicemotion
     ax = (typeof accelerationX === 'number') ? accelerationX : ax;
@@ -84,21 +86,22 @@ function draw() {
     az = (typeof accelerationZ === 'number') ? accelerationZ : az;
   }
 
+  // Magnitud y "sacudida" (jerk)
   const da = createVector(ax - pax, ay - pay, az - paz);
-  jerk = da.mag();                         
-  amag = createVector(ax, ay, az).mag();   
+  jerk = da.mag();                         // cambio instantáneo
+  amag = createVector(ax, ay, az).mag();   // intensidad total
 
   pax = ax; pay = ay; paz = az;
 
- 
-  const sens = parseFloat(ui.sens.value());     /
+  // Parámetros de usuario
+  const sens = parseFloat(ui.sens.value());     // sensibilidad de disparo
   const pmin = parseFloat(ui.pmin.value());
   const pmax = parseFloat(ui.pmax.value());
-  const bright = parseFloat(ui.bright.value()); 
+  const bright = parseFloat(ui.bright.value()); // brillo/timbre
   const smooth = parseFloat(ui.smooth.value());
   const inv = ui.invert.elt.checked ? -1 : 1;
 
- 
+  // 1) Pitch desde jerk (más brusco = más agudo)
   const jNorm = constrain(jerk / sens, 0, 1);
   let fTarget = lerp(pmin, pmax, jNorm);
   fTarget = inv < 0 ? map(fTarget, pmin, pmax, pmax, pmin) : fTarget;
@@ -118,7 +121,7 @@ function draw() {
     env.play(osc, 0, 0.0); // disparo inmediato
     vis.amp = peak;
   }
-  
+  // Visualización
   drawUI();
 }
 
@@ -130,14 +133,15 @@ function drawUI() {
   translate(width / 2, (height - 120) / 2);
   noStroke();
 
+  // halo
   fill(60, 160, 255, 20);
   circle(0, 0, r * 2.2);
 
- 
+  // disco
   fill(lerpColor(color('#2b6de9'), color('#ff5b5b'), map(vis.cutoff, 300, 9000, 0, 1, true)));
   circle(0, 0, r * 2);
 
-
+  // indicador de dirección
   stroke(245);
   strokeWeight(3);
   line(0, 0, ax * 10, -ay * 10);
@@ -152,7 +156,7 @@ function drawUI() {
   );
   pop();
 
-  
+  // medidor inferior
   const level = meter.getLevel();
   const bar = map(level, 0, 0.5, 0, width);
   fill('#2b6de9');
@@ -160,4 +164,3 @@ function drawUI() {
 }
 
 function windowResized() { resizeCanvas(windowWidth, windowHeight); }
-
