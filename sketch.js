@@ -1,166 +1,165 @@
-// sketch.js
-// Vara sonora: mapea el movimiento (acelerómetro) a pitch, timbre y volumen con p5.sound
+// Groan Tube simulation using device accelerometer + p5.sound
 
-let osc, filt, env, meter;
-let started = false, motionReady = false;
+let osc, filter, started = false;
+let smoothAx = 0, smoothAy = 0, smoothAz = 0;
+let prevAx = 0, prevAy = 0, prevAz = 0;
+let intensity = 0;
 
-let ax = 0, ay = 0, az = 0, pax = 0, pay = 0, paz = 0;
-let jerk = 0, amag = 0;
-let vis = { freq: 220, cutoff: 800, amp: 0 };
+// UI elements
+let startBtn, sensitivityEl, pitchMinEl, pitchMaxEl, brightnessEl;
 
-let ui = {};
 function setup() {
   createCanvas(windowWidth, windowHeight);
-  noStroke();
+  background(20);
 
-  // Audio nodes
-  osc = new p5.Oscillator('triangle'); // forma inicial
-  filt = new p5.LowPass();             // filtro de timbre
-  env = new p5.Envelope();             // envolvente de amplitud
-  env.setADSR(0.01, 0.12, 0.2, 0.15);  // ataque/decay/sustain/release
-  env.setRange(0.4, 0.0);              // nivel máximo y mínimo
+  // connect to HTML controls
+  startBtn = select('#startBtn');
+  sensitivityEl = select('#sensitivity');
+  pitchMinEl = select('#pitchMin');
+  pitchMaxEl = select('#pitchMax');
+  brightnessEl = select('#brightness');
 
-  osc.disconnect();    // desconecta del master para insertar filtro
-  osc.connect(filt);   // osc -> filtro -> salida
+  startBtn.mousePressed(toggleStart);
+
+  // create audio nodes
+  filter = new p5.LowPass();
+  osc = new p5.Oscillator('saw');
+  osc.disconnect();
+  osc.connect(filter);
   osc.start();
-  osc.amp(0);          // silencio hasta disparar env
+  osc.amp(0);
 
-  meter = new p5.Amplitude();
-
-  // UI
-  ui.startBtn = select('#startBtn');
-  ui.state = select('#state');
-  ui.sens = select('#sens');
-  ui.pmin = select('#pmin');
-  ui.pmax = select('#pmax');
-  ui.bright = select('#bright');
-  ui.smooth = select('#smooth');
-  ui.wave = select('#wave');
-  ui.invert = select('#invert');
-
-  ui.startBtn.mousePressed(enableAudioAndMotion);
-  ui.wave.changed(() => osc.setType(ui.wave.value()));
-
-  textAlign(CENTER, CENTER);
+  // prevent autoplay on mobile: wait for gesture
+  userStartAudio();
 }
 
-async function enableAudioAndMotion() {
-  // 1) Arrancar contexto de audio por gesto
-  try {
-    await userStartAudio();
-    if (getAudioContext().state !== 'running') await getAudioContext().resume();
-    started = true;
-  } catch (e) { console.error(e); }
+function windowResized() {
+  resizeCanvas(windowWidth, windowHeight);
+}
 
-  // 2) Solicitar permiso de movimiento en iOS 13+
-  try {
-    if (typeof DeviceMotionEvent !== 'undefined' &&
-      typeof DeviceMotionEvent.requestPermission === 'function') {
-      const r = await DeviceMotionEvent.requestPermission();
-      if (r === 'granted') motionReady = true;
-    } else {
-      // Otros navegadores no requieren permiso explícito
-      motionReady = true;
-    }
-  } catch (e) {
-    console.error(e);
+function toggleStart() {
+  // resume audio context (mobile requirement)
+  if (getAudioContext().state !== 'running') {
+    getAudioContext().resume();
   }
 
-  updateState();
-}
-
-function updateState() {
-  const a = started ? 'Audio: activo' : 'Audio: detenido';
-  const s = motionReady ? 'Sensores: OK' : 'Sensores: sin permiso';
-  ui.state.html(`${a} · ${s}`);
+  // On iOS 13+ we must request motion permission from the user
+  if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+    DeviceMotionEvent.requestPermission().then(response => {
+      if (response === 'granted') {
+        started = true;
+        startBtn.attribute('disabled', '');
+        startBtn.html('Sonido activo');
+      } else {
+        // user denied motion permission - still allow audio but warn
+        started = true;
+        startBtn.attribute('disabled', '');
+        startBtn.html('Sonido activo (sin sensores)');
+      }
+    }).catch(err => {
+      // some browsers might reject; still start audio
+      started = true;
+      startBtn.attribute('disabled', '');
+      startBtn.html('Sonido activo');
+    });
+  } else {
+    // Non-iOS or older browsers
+    started = true;
+    startBtn.attribute('disabled', '');
+    startBtn.html('Sonido activo');
+  }
 }
 
 function draw() {
-  background(10, 14, 20);
+  background(30, 30, 40);
 
-  // Leer aceleración si está disponible
-  if (motionReady) {
-    // p5 expone accelerationX/Y/Z cuando hay devicemotion
-    ax = (typeof accelerationX === 'number') ? accelerationX : ax;
-    ay = (typeof accelerationY === 'number') ? accelerationY : ay;
-    az = (typeof accelerationZ === 'number') ? accelerationZ : az;
-  }
+  // Read accelerometer values provided by p5 (may be 0 on desktop)
+  let ax = (typeof accelerationX !== 'undefined') ? accelerationX : 0;
+  let ay = (typeof accelerationY !== 'undefined') ? accelerationY : 0;
+  let az = (typeof accelerationZ !== 'undefined') ? accelerationZ : 0;
 
-  // Magnitud y "sacudida" (jerk)
-  const da = createVector(ax - pax, ay - pay, az - paz);
-  jerk = da.mag();                         // cambio instantáneo
-  amag = createVector(ax, ay, az).mag();   // intensidad total
+  // Smooth the raw values to avoid jumps
+  smoothAx = lerp(smoothAx, ax, 0.15);
+  smoothAy = lerp(smoothAy, ay, 0.15);
+  smoothAz = lerp(smoothAz, az, 0.15);
 
-  pax = ax; pay = ay; paz = az;
+  // Movement intensity measured as delta from previous smoothed values
+  let dx = smoothAx - prevAx;
+  let dy = smoothAy - prevAy;
+  let dz = smoothAz - prevAz;
+  let deltaMag = sqrt(dx * dx + dy * dy + dz * dz);
 
-  // Parámetros de usuario
-  const sens = parseFloat(ui.sens.value());     // sensibilidad de disparo
-  const pmin = parseFloat(ui.pmin.value());
-  const pmax = parseFloat(ui.pmax.value());
-  const bright = parseFloat(ui.bright.value()); // brillo/timbre
-  const smooth = parseFloat(ui.smooth.value());
-  const inv = ui.invert.elt.checked ? -1 : 1;
+  // sensitivity slider modifies how delta maps to 0..1
+  let sensitivity = Number(sensitivityEl.value());
+  intensity = constrain(map(deltaMag, 0, sensitivity, 0, 1), 0, 1);
 
-  // 1) Pitch desde jerk (más brusco = más agudo)
-  const jNorm = constrain(jerk / sens, 0, 1);
-  let fTarget = lerp(pmin, pmax, jNorm);
-  fTarget = inv < 0 ? map(fTarget, pmin, pmax, pmax, pmin) : fTarget;
-  vis.freq = lerp(vis.freq, fTarget, smooth);
-  osc.freq(vis.freq);
+  // Pitch mapping: tilt (x) defines base pitch; agitation (intensity) raises it
+  let pMin = Number(pitchMinEl.value());
+  let pMax = Number(pitchMaxEl.value());
+  // map tilt (smoothAx) to base pitch (inverted so flipping inverts tone)
+  let baseFreq = map(smoothAx, -9.8, 9.8, pMax, pMin); // tilt inversion
+  baseFreq = constrain(baseFreq, pMin, pMax);
+  // agitation increases pitch a bit
+  let freq = baseFreq * (1 + intensity * 0.6);
 
-  // 2) Timbre: filtro lowpass (magnitud -> cutoff, brillo -> resonancia)
-  const cutoffTarget = map(constrain(amag, 0, 20), 0, 20, 300, 9000);
-  vis.cutoff = lerp(vis.cutoff, cutoffTarget, 0.15);
-  filt.freq(vis.cutoff);
-  filt.res(0.1 + bright * 20.0); // más brillo = más resonancia/Q
+  // Filter cutoff: controlled by brightness slider and intensity
+  let brightness = Number(brightnessEl.value());
+  // base cutoff from brightness (normalize to Hz)
+  let cutoff = map(brightness, 0, 1, 300, 6000);
+  cutoff *= (1 + intensity * 2.0);
+  cutoff = constrain(cutoff, 50, 22050);
 
-  // 3) Volumen: disparar envolvente en sacudidas
-  if (jNorm > 0.12 && started) {
-    const peak = map(constrain(amag, 0, 20), 0, 20, 0.05, 0.7);
-    env.setRange(peak, 0.0);
-    env.play(osc, 0, 0.0); // disparo inmediato
-    vis.amp = peak;
-  }
-  // Visualización
-  drawUI();
-}
+  // Smooth transitions for frequency and filter
+  let currentFreq = osc.freq() || 220;
+  let smoothFreq = lerp(currentFreq, freq, 0.12);
+  osc.freq(smoothFreq);
+  filter.freq(lerp(filter.freq() || 1000, cutoff, 0.08));
 
-function drawUI() {
-  // Disco central según intensidad y color por frecuencia
-  const hue = map(vis.freq, 80, 1600, 190, 330, true);
-  const r = map(constrain(amag, 0, 20), 0, 20, 40, min(width, height) * 0.45);
+  // Amplitude: scale with intensity with smoothing
+  let targetAmp = started ? intensity * 0.7 : 0;
+  let curAmp = osc.getAmp();
+  let smoothAmp = lerp(curAmp, targetAmp, 0.12);
+  osc.amp(smoothAmp, 0.02);
+
+  // Visual indicator: direction and intensity
   push();
-  translate(width / 2, (height - 120) / 2);
+  translate(width / 2, height / 2);
+  // draw intensity circle
   noStroke();
+  fill(60, 160, 220, 180);
+  let radius = 40 + intensity * min(width, height) * 0.25;
+  ellipse(0, 0, radius, radius);
 
-  // halo
-  fill(60, 160, 255, 20);
-  circle(0, 0, r * 2.2);
-
-  // disco
-  fill(lerpColor(color('#2b6de9'), color('#ff5b5b'), map(vis.cutoff, 300, 9000, 0, 1, true)));
-  circle(0, 0, r * 2);
-
-  // indicador de dirección
-  stroke(245);
+  // draw direction arrow based on tilt (ax, ay)
+  stroke(255);
   strokeWeight(3);
-  line(0, 0, ax * 10, -ay * 10);
+  let arrowX = map(smoothAx, -9.8, 9.8, -width * 0.4, width * 0.4);
+  let arrowY = map(smoothAy, -9.8, 9.8, -height * 0.4, height * 0.4);
+  line(0, 0, arrowX, arrowY);
+  fill(255);
   noStroke();
-
-  // texto de depuración
-  fill(230);
+  textAlign(CENTER);
   textSize(14);
-  text(
-    `jerk: ${jerk.toFixed(3)}\n|a|: ${amag.toFixed(3)}\nfreq: ${vis.freq.toFixed(1)} Hz\ncutoff: ${Math.round(vis.cutoff)} Hz`,
-    0, 0
-  );
+  text('Intensidad: ' + nf(intensity, 1, 2), 0, radius / 2 + 20);
   pop();
 
-  // medidor inferior
-  const level = meter.getLevel();
-  const bar = map(level, 0, 0.5, 0, width);
-  fill('#2b6de9');
-  rect(0, height - 6, bar, 6);
+  // keep previous smoothed values for next delta
+  prevAx = smoothAx; prevAy = smoothAy; prevAz = smoothAz;
+
+  // small hint on desktop
+  if (!started) {
+    push();
+    fill(255);
+    textAlign(LEFT);
+    textSize(12);
+    text('Pulsa "Iniciar sonido" para permitir audio en móvil', 10, height - 10);
+    pop();
+  }
 }
 
-function windowResized() { resizeCanvas(windowWidth, windowHeight); }
+// helpful: also respond to deviceMoved event to make it more responsive on some devices
+function deviceMoved() {
+  // deviceMoved triggers frequently; we allow draw() to handle most mapping
+}
+
+
