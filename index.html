@@ -1,94 +1,36 @@
-<!-- index.html -->
 <!doctype html>
 <html lang="es">
 
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Vara sonora — p5.sound + acelerómetro</title>
-  <!-- Incluye las librerías localmente -->
-  <script src="libs/p5.min.js"></script>
-  <script src="libs/p5.sound.min.js"></script>
-  <style>
-    html,
-    body {
-      margin: 0;
-      padding: 0;
-      background: #0b0f14;
-      color: #e6edf3;
-      font-family: system-ui, sans-serif;
-    }
-
-    #ui {
-      position: fixed;
-      inset: auto 0 0 0;
-      background: rgba(0, 0, 0, .35);
-      backdrop-filter: blur(6px);
-      padding: 10px 12px;
-    }
-
-    .row {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      margin: 6px 0;
-      flex-wrap: wrap;
-    }
-
-    label {
-      font-size: 14px;
-      opacity: .9;
-    }
-
-    input[type=range] {
-      width: 140px;
-    }
-
-    button {
-      padding: 8px 12px;
-      border-radius: 8px;
-      border: 0;
-      background: #2b6de9;
-      color: white;
-    }
-
-    .pill {
-      padding: 6px 10px;
-      border-radius: 999px;
-      background: #162032;
-      font-size: 12px;
-    }
-
-    canvas {
-      display: block;
-    }
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Groan Tube - Wac Woc</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
-  <main>
-    <div id="ui">
-      <div class="row">
-        <button id="startBtn">Iniciar audio y sensores</button>
-        <span id="state" class="pill">Audio: detenido · Sensores: sin permiso</span>
-      </div>
-      <div class="row">
-        <label>Sensibilidad</label><input id="sens" type="range" min="0.5" max="6" step="0.1" value="2">
-        <label>Pitch min</label><input id="pmin" type="range" min="80" max="400" step="1" value="180">
-        <label>Pitch max</label><input id="pmax" type="range" min="300" max="1600" step="1" value="880">
-        <label>Brillo</label><input id="bright" type="range" min="0" max="1" step="0.01" value="0.6">
-        <label>Suavizado</label><input id="smooth" type="range" min="0" max="1" step="0.01" value="0.18">
-        <label>Forma</label>
-        <select id="wave">
-          <option value="sine">sine</option>
-          <option value="triangle" selected>triangle</option>
-          <option value="sawtooth">sawtooth</option>
-          <option value="square">square</option>
-        </select>
-        <label><input id="invert" type="checkbox"> Invertir pitch</label>
-      </div>
+  <div id="ui">
+    <button id="startBtn">Iniciar sonido</button>
+    <div class="control">
+      <label for="sensitivity">Sensibilidad</label>
+      <input id="sensitivity" type="range" min="0.5" max="10" step="0.1" value="2">
     </div>
-  </main>
+    <div class="control">
+      <label for="pitchMin">Pitch mínimo (Hz)</label>
+      <input id="pitchMin" type="range" min="50" max="400" step="1" value="80">
+    </div>
+    <div class="control">
+      <label for="pitchMax">Pitch máximo (Hz)</label>
+      <input id="pitchMax" type="range" min="400" max="3000" step="1" value="1000">
+    </div>
+    <div class="control">
+      <label for="brightness">Brillo (filtro)</label>
+      <input id="brightness" type="range" min="0" max="1" step="0.01" value="0.6">
+    </div>
+  </div>
+
+  <script src="libraries/p5.min.js"></script>
+  <script src="libraries/p5.sound.min.js"></script>
   <script src="sketch.js"></script>
 </body>
 
