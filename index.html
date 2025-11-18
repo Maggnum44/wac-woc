@@ -1,36 +1,96 @@
-<!doctype html>
+
+
+<!DOCTYPE html>
 <html lang="es">
 
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Groan Tube - Wac Woc</title>
-  <link rel="stylesheet" href="style.css">
+  <title>Groan Tube Acelerómetro – p5.js</title>
+
+  <!-- Importante para que el canvas ocupe bien la pantalla del móvil -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+
+  <!-- p5.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+  <!-- p5.sound -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/addons/p5.sound.min.js"></script>
+
+  <style>
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: #000;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    #ui-container {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      padding: 8px 12px 10px;
+      background: rgba(0, 0, 0, 0.6);
+      color: #fff;
+      z-index: 10;
+      font-size: 14px;
+    }
+
+    .slider-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .slider-row label {
+      min-width: 100px;
+    }
+
+    input[type="range"] {
+      flex: 1;
+    }
+
+    #status {
+      margin-top: 4px;
+      font-size: 12px;
+      opacity: 0.8;
+    }
+  </style>
 </head>
 
 <body>
-  <div id="ui">
-    <button id="startBtn">Iniciar sonido</button>
-    <div class="control">
-      <label for="sensitivity">Sensibilidad</label>
-      <input id="sensitivity" type="range" min="0.5" max="10" step="0.1" value="2">
+  <!-- Contenedor para sliders y estado -->
+  <div id="ui-container">
+    <button id="startButton">Activar sonido</button>
+
+    <div class="slider-row">
+      <label for="sensSlider">Sensibilidad</label>
+      <input id="sensSlider" type="range" min="0.3" max="5" step="0.1" value="1.5" />
     </div>
-    <div class="control">
-      <label for="pitchMin">Pitch mínimo (Hz)</label>
-      <input id="pitchMin" type="range" min="50" max="400" step="1" value="80">
+
+    <div class="slider-row">
+      <label for="minPitchSlider">Pitch min</label>
+      <input id="minPitchSlider" type="range" min="80" max="400" step="5" value="150" />
     </div>
-    <div class="control">
-      <label for="pitchMax">Pitch máximo (Hz)</label>
-      <input id="pitchMax" type="range" min="400" max="3000" step="1" value="1000">
+
+    <div class="slider-row">
+      <label for="maxPitchSlider">Pitch max</label>
+      <input id="maxPitchSlider" type="range" min="300" max="2000" step="10" value="800" />
     </div>
-    <div class="control">
-      <label for="brightness">Brillo (filtro)</label>
-      <input id="brightness" type="range" min="0" max="1" step="0.01" value="0.6">
+
+    <div class="slider-row">
+      <label for="brightSlider">Brillo</label>
+      <input id="brightSlider" type="range" min="400" max="6000" step="50" value="1200" />
+    </div>
+
+    <div id="status">
+      Mueve el móvil como una vara para oír el <em>waaaac-woooc</em>.
     </div>
   </div>
 
-  <script src="libraries/p5.min.js"></script>
-  <script src="libraries/p5.sound.min.js"></script>
+  <!-- Sketch principal -->
   <script src="sketch.js"></script>
 </body>
 
