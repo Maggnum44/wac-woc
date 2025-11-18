@@ -1,165 +1,200 @@
-// Groan Tube simulation using device accelerometer + p5.sound
+// --- Variables de audio ---
+let osc;          // Oscilador principal (tubo)
+let filter;       // Filtro para dar color "tubular"
+let started = false;
 
-let osc, filter, started = false;
-let smoothAx = 0, smoothAy = 0, smoothAz = 0;
-let prevAx = 0, prevAy = 0, prevAz = 0;
-let intensity = 0;
+// --- Control de movimiento ---
+let intensity = 0;      // Intensidad suavizada del movimiento
+let smoothedFreq = 200; // Frecuencia suavizada
+let smoothedAmp = 0;    // Amplitud suavizada
 
-// UI elements
-let startBtn, sensitivityEl, pitchMinEl, pitchMaxEl, brightnessEl;
+// --- Sliders (HTML) ---
+let sensSlider, minPitchSlider, maxPitchSlider, brightSlider;
+let statusEl;
+let startButton;
 
+// --- Setup de p5 ---
 function setup() {
   createCanvas(windowWidth, windowHeight);
-  background(20);
 
-  // connect to HTML controls
-  startBtn = select('#startBtn');
-  sensitivityEl = select('#sensitivity');
-  pitchMinEl = select('#pitchMin');
-  pitchMaxEl = select('#pitchMax');
-  brightnessEl = select('#brightness');
+  // Fondo negro, texto centrado
+  textAlign(CENTER, CENTER);
+  rectMode(CENTER);
 
-  startBtn.mousePressed(toggleStart);
+  // Cogemos los elementos HTML ya creados en index.html
+  startButton = document.getElementById("startButton");
+  sensSlider = document.getElementById("sensSlider");
+  minPitchSlider = document.getElementById("minPitchSlider");
+  maxPitchSlider = document.getElementById("maxPitchSlider");
+  brightSlider = document.getElementById("brightSlider");
+  statusEl = document.getElementById("status");
 
-  // create audio nodes
-  filter = new p5.LowPass();
-  osc = new p5.Oscillator('saw');
-  osc.disconnect();
-  osc.connect(filter);
-  osc.start();
-  osc.amp(0);
-
-  // prevent autoplay on mobile: wait for gesture
-  userStartAudio();
+  startButton.addEventListener("click", onStartButton);
 }
 
+// Se llama continuamente
+function draw() {
+  background(0);
+
+  // Texto de ayuda si aún no está iniciado
+  if (!started) {
+    fill(255);
+    textSize(20);
+    text(
+      "Toca el botón \"Activar sonido\"\n" +
+      "y luego mueve el móvil como una vara\n" +
+      "para generar el waaaac–woooc.",
+      width / 2,
+      height / 2
+    );
+    return;
+  }
+
+  // --- LECTURA DEL ACELERÓMETRO ---
+  // Variables de sistema de p5.js: accelerationX/Y/Z y pAccelerationX/Y/Z
+  // (pueden ser 0 en escritorio o navegador sin permisos)
+  let ax = accelerationX;
+  let ay = accelerationY;
+  let az = accelerationZ;
+
+  let pax = pAccelerationX;
+  let pay = pAccelerationY;
+  let paz = pAccelerationZ;
+
+  // Medida simple de "sacudida": distancia entre aceleraciones actual y previa
+  let delta = dist(ax, ay, az, pax, pay, paz);
+
+  // Suavizamos la intensidad para evitar saltos bruscos
+  intensity = lerp(intensity, delta, 0.3);
+
+  // --- MAPEOS A PARÁMETROS SONOROS ---
+
+  // 1) Pitch: usamos la aceleración en Y (inclinar la vara hacia arriba/abajo)
+  let minF = parseFloat(minPitchSlider.value);
+  let maxF = parseFloat(maxPitchSlider.value);
+
+  // En muchos móviles, ay suele ir de aprox. -20 a 20
+  let targetFreq = map(ay, -20, 20, maxF, minF, true);
+  smoothedFreq = lerp(smoothedFreq, targetFreq, 0.15);
+  osc.freq(smoothedFreq);
+
+  // 2) Amplitud: basada en intensidad * sensibilidad
+  let sens = parseFloat(sensSlider.value);
+  let rawAmp = constrain((intensity * sens) / 40, 0, 1);
+  smoothedAmp = lerp(smoothedAmp, rawAmp, 0.2);
+  osc.amp(smoothedAmp, 0.05); // 0.05s para ramp suave
+
+  // 3) Brillo (filtro): base fija + extra según intensidad
+  let baseBright = parseFloat(brightSlider.value);
+  let cutoff = constrain(baseBright + intensity * 80, 300, 10000);
+  filter.freq(cutoff);
+  filter.res(8); // resonancia moderada
+
+  // --- INTERFAZ VISUAL ---
+  drawVisualizer(ax, ay, az);
+  drawHUD(ax, ay, az, cutoff);
+}
+
+// Visualizador del movimiento
+function drawVisualizer(ax, ay, az) {
+  // Color según dirección principal (eje dominante)
+  let mag = sqrt(ax * ax + ay * ay + az * az);
+  let normInt = constrain(intensity / 20, 0, 1);
+
+  // Color base entre azul (tranquilo) y naranja (agitadísimo)
+  let r = lerp(30, 255, normInt);
+  let g = lerp(80, 160, normInt);
+  let b = lerp(200, 40, normInt);
+
+  // Círculo central cuyo tamaño crece con la intensidad
+  let maxRadius = min(width, height) * 0.4;
+  let radius = lerp(maxRadius * 0.1, maxRadius, normInt);
+
+  noStroke();
+  fill(r, g, b, 180);
+  ellipse(width / 2, height / 2, radius, radius);
+
+  // Una "barra" vertical tipo VU
+  let barWidth = 40;
+  let barHeight = map(normInt, 0, 1, 10, height * 0.8);
+  let barX = width - barWidth - 20;
+  let barY = height - barHeight - 20;
+
+  fill(255, 220);
+  rectMode(CORNER);
+  rect(barX, barY, barWidth, barHeight);
+}
+
+// HUD con texto de debug
+function drawHUD(ax, ay, az, cutoff) {
+  fill(255);
+  textSize(12);
+  textAlign(LEFT, TOP);
+  let lines = [
+    "ax: " + ax.toFixed(2),
+    "ay: " + ay.toFixed(2),
+    "az: " + az.toFixed(2),
+    "intensidad: " + intensity.toFixed(2),
+    "freq: " + smoothedFreq.toFixed(1) + " Hz",
+    "amp: " + smoothedAmp.toFixed(2),
+    "cutoff: " + cutoff.toFixed(0) + " Hz"
+  ];
+  text(lines.join("\n"), 10, 10);
+}
+
+// Gestiona el botón "Activar sonido"
+async function onStartButton() {
+  // 1) Reanudar contexto de audio (requisito en navegadores modernos)
+  let ctx = getAudioContext();
+  if (ctx.state !== "running") {
+    await ctx.resume();
+  }
+
+  // 2) Pedir permiso para el acelerómetro en iOS (si hace falta)
+  if (
+    typeof DeviceMotionEvent !== "undefined" &&
+    typeof DeviceMotionEvent.requestPermission === "function"
+  ) {
+    try {
+      const response = await DeviceMotionEvent.requestPermission();
+      if (response !== "granted") {
+        statusEl.textContent =
+          "Permiso de movimiento denegado. Actívalo en ajustes del navegador.";
+        return;
+      }
+    } catch (err) {
+      console.error(err);
+      statusEl.textContent =
+        "Error al pedir permiso de movimiento: " + err.message;
+      return;
+    }
+  }
+
+  // 3) Crear la cadena de síntesis (oscilador + filtro)
+  if (!osc) {
+    osc = new p5.Oscillator("sawtooth"); // diente de sierra para sonido algo áspero
+    filter = new p5.Filter("bandpass");  // filtro de banda para color "tubular"
+
+    // Conectamos: osc -> filter -> salida
+    osc.disconnect();
+    osc.connect(filter);
+
+    // Valores iniciales razonables
+    osc.freq(smoothedFreq);
+    osc.amp(0);
+    filter.freq(1000);
+    filter.res(8);
+
+    osc.start();
+  }
+
+  started = true;
+  statusEl.textContent =
+    "¡Listo! Mueve el móvil como si fuera la groan tube (más fuerte = más volumen/brillo).";
+  startButton.textContent = "Sonido activo";
+}
+
+// Hacer que el canvas siga ocupando la pantalla al rotar el móvil
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
 }
-
-function toggleStart() {
-  // resume audio context (mobile requirement)
-  if (getAudioContext().state !== 'running') {
-    getAudioContext().resume();
-  }
-
-  // On iOS 13+ we must request motion permission from the user
-  if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
-    DeviceMotionEvent.requestPermission().then(response => {
-      if (response === 'granted') {
-        started = true;
-        startBtn.attribute('disabled', '');
-        startBtn.html('Sonido activo');
-      } else {
-        // user denied motion permission - still allow audio but warn
-        started = true;
-        startBtn.attribute('disabled', '');
-        startBtn.html('Sonido activo (sin sensores)');
-      }
-    }).catch(err => {
-      // some browsers might reject; still start audio
-      started = true;
-      startBtn.attribute('disabled', '');
-      startBtn.html('Sonido activo');
-    });
-  } else {
-    // Non-iOS or older browsers
-    started = true;
-    startBtn.attribute('disabled', '');
-    startBtn.html('Sonido activo');
-  }
-}
-
-function draw() {
-  background(30, 30, 40);
-
-  // Read accelerometer values provided by p5 (may be 0 on desktop)
-  let ax = (typeof accelerationX !== 'undefined') ? accelerationX : 0;
-  let ay = (typeof accelerationY !== 'undefined') ? accelerationY : 0;
-  let az = (typeof accelerationZ !== 'undefined') ? accelerationZ : 0;
-
-  // Smooth the raw values to avoid jumps
-  smoothAx = lerp(smoothAx, ax, 0.15);
-  smoothAy = lerp(smoothAy, ay, 0.15);
-  smoothAz = lerp(smoothAz, az, 0.15);
-
-  // Movement intensity measured as delta from previous smoothed values
-  let dx = smoothAx - prevAx;
-  let dy = smoothAy - prevAy;
-  let dz = smoothAz - prevAz;
-  let deltaMag = sqrt(dx * dx + dy * dy + dz * dz);
-
-  // sensitivity slider modifies how delta maps to 0..1
-  let sensitivity = Number(sensitivityEl.value());
-  intensity = constrain(map(deltaMag, 0, sensitivity, 0, 1), 0, 1);
-
-  // Pitch mapping: tilt (x) defines base pitch; agitation (intensity) raises it
-  let pMin = Number(pitchMinEl.value());
-  let pMax = Number(pitchMaxEl.value());
-  // map tilt (smoothAx) to base pitch (inverted so flipping inverts tone)
-  let baseFreq = map(smoothAx, -9.8, 9.8, pMax, pMin); // tilt inversion
-  baseFreq = constrain(baseFreq, pMin, pMax);
-  // agitation increases pitch a bit
-  let freq = baseFreq * (1 + intensity * 0.6);
-
-  // Filter cutoff: controlled by brightness slider and intensity
-  let brightness = Number(brightnessEl.value());
-  // base cutoff from brightness (normalize to Hz)
-  let cutoff = map(brightness, 0, 1, 300, 6000);
-  cutoff *= (1 + intensity * 2.0);
-  cutoff = constrain(cutoff, 50, 22050);
-
-  // Smooth transitions for frequency and filter
-  let currentFreq = osc.freq() || 220;
-  let smoothFreq = lerp(currentFreq, freq, 0.12);
-  osc.freq(smoothFreq);
-  filter.freq(lerp(filter.freq() || 1000, cutoff, 0.08));
-
-  // Amplitude: scale with intensity with smoothing
-  let targetAmp = started ? intensity * 0.7 : 0;
-  let curAmp = osc.getAmp();
-  let smoothAmp = lerp(curAmp, targetAmp, 0.12);
-  osc.amp(smoothAmp, 0.02);
-
-  // Visual indicator: direction and intensity
-  push();
-  translate(width / 2, height / 2);
-  // draw intensity circle
-  noStroke();
-  fill(60, 160, 220, 180);
-  let radius = 40 + intensity * min(width, height) * 0.25;
-  ellipse(0, 0, radius, radius);
-
-  // draw direction arrow based on tilt (ax, ay)
-  stroke(255);
-  strokeWeight(3);
-  let arrowX = map(smoothAx, -9.8, 9.8, -width * 0.4, width * 0.4);
-  let arrowY = map(smoothAy, -9.8, 9.8, -height * 0.4, height * 0.4);
-  line(0, 0, arrowX, arrowY);
-  fill(255);
-  noStroke();
-  textAlign(CENTER);
-  textSize(14);
-  text('Intensidad: ' + nf(intensity, 1, 2), 0, radius / 2 + 20);
-  pop();
-
-  // keep previous smoothed values for next delta
-  prevAx = smoothAx; prevAy = smoothAy; prevAz = smoothAz;
-
-  // small hint on desktop
-  if (!started) {
-    push();
-    fill(255);
-    textAlign(LEFT);
-    textSize(12);
-    text('Pulsa "Iniciar sonido" para permitir audio en móvil', 10, height - 10);
-    pop();
-  }
-}
-
-// helpful: also respond to deviceMoved event to make it more responsive on some devices
-function deviceMoved() {
-  // deviceMoved triggers frequently; we allow draw() to handle most mapping
-}
-
-
